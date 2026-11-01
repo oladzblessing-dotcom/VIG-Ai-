@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: vigai
+    runtime: node
+    plan: starter            # a paid instance is required for a persistent disk
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    disk:
+      name: vigai-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - { key: NODE_VERSION, value: "20" }
+      - { key: DB_PATH, value: /var/data/vigai.db }
+      - { key: JWT_SECRET, generateValue: true }
+      - { key: BASE_URL, sync: false }
+      - { key: OPENAI_API_KEY, sync: false }
+      - { key: IMAGE_MODEL, value: gpt-image-2 }
+      - { key: STRIPE_SECRET_KEY, sync: false }
+      - { key: STRIPE_PRICE_ID, sync: false }
+      - { key: STRIPE_WEBHOOK_SECRET, sync: false }
+      - { key: GOOGLE_CLIENT_ID, sync: false }
