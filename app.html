@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VIG Ai</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--ink:#14171f;--mute:#667085;--line:#dfe3ec;--acc:#3a4bff;--acc2:#12b886;--onacc:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1117;--card:#181b24;--ink:#eef0f6;--mute:#98a0b3;--line:#2a2f3d;--acc:#7b88ff;--acc2:#3dd6a3;--onacc:#0f1117}}
+:root[data-theme="dark"]{--bg:#0f1117;--card:#181b24;--ink:#eef0f6;--mute:#98a0b3;--line:#2a2f3d;--acc:#7b88ff;--acc2:#3dd6a3;--onacc:#0f1117}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'Bricolage Grotesque',system-ui,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:16px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+.badge{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:6px 12px;font:600 14px inherit;font-family:inherit;cursor:pointer}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px}
+nav button{flex:1;border:0;background:none;color:var(--mute);font:600 15px inherit;font-family:inherit;padding:10px;border-radius:9px;cursor:pointer}
+nav button.on{background:var(--acc);color:var(--onacc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
+textarea,select,input[type=file]{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px;font:inherit}
+textarea{min-height:80px;resize:vertical}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.btn{width:100%;margin-top:14px;border:0;background:var(--acc);color:var(--onacc);font:700 16px inherit;font-family:inherit;padding:13px;border-radius:11px;cursor:pointer}
+.btn.alt{background:none;border:1px solid var(--line);color:var(--ink)}
+.btn:disabled{opacity:.5}
+canvas{width:100%;height:auto;border-radius:10px;display:block;margin-top:12px;background:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.grid a{font-size:13px;color:var(--acc);display:block;margin-top:2px}
+.muted{color:var(--mute);font-size:14px}
+.hide{display:none}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:0;z-index:20}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom,0px))}
+.price{font-size:36px;font-weight:800;letter-spacing:-.03em}
+.plan{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.plan.cur{border-color:var(--acc);border-width:2px}
+.plan ul{margin:8px 0;padding-left:20px}
+.tag{font-size:13px;font-weight:600;color:var(--acc2)}
+.sheet li{margin:6px 0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;z-index:30}
+</style></head>
+<body><div class="wrap">
+<header><h1>VIG Ai</h1><div style="display:flex;gap:8px"><button class="badge" id="credits" onclick="openPlan()"></button><button class="badge" onclick="logout()">Log out</button></div></header>
+<nav id="tabs"><button class="on" data-t="gen">Create</button><button data-t="enh">Enhance</button><button data-t="gal">Gallery</button><button data-t="vid">Video</button></nav>
+
+<section id="gen" class="card">
+<label for="kind">What are you making?</label>
+<select id="kind"><option value="image">Image or artwork</option><option value="logo">Logo</option><option value="poster">Poster or flyer</option><option value="social">Social media post</option></select>
+<label for="prompt">Describe it</label>
+<textarea id="prompt" placeholder="A lighthouse on a cliff at dusk"></textarea>
+<label for="style">Style</label>
+<select id="style"><option value="dusk">Dusk</option><option value="ocean">Ocean</option><option value="ember">Ember</option><option value="forest">Forest</option></select>
+<button class="btn" id="genBtn">Create (1 credit)</button>
+<canvas id="genCv" width="512" height="512" class="hide"></canvas>
+<button class="btn alt hide" id="saveGen">Save to gallery</button>
+<p class="muted">Created by AI. This can take a few seconds.</p>
+</section>
+
+<section id="enh" class="card hide">
+<label for="file">Upload a photo</label>
+<input type="file" id="file" accept="image/*">
+<div id="ctl" class="hide">
+<label>Brightness</label><input type="range" id="br" min="60" max="150" value="100">
+<label>Contrast</label><input type="range" id="ct" min="60" max="160" value="100">
+<label>Color</label><input type="range" id="sa" min="0" max="200" value="100">
+<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="up"> Upscale 2x</label>
+<button class="btn" id="enhBtn">Save to gallery (free)</button>
+</div>
+<canvas id="enhCv" class="hide"></canvas>
+<p class="muted">Enhancing is free and unlimited. Credits are only used for AI creations.</p>
+</section>
+
+<section id="gal" class="card hide"><div id="galGrid" class="grid"></div><p id="empty" class="muted">Nothing saved yet. Create or enhance something to start your gallery.</p></section>
+<section id="vid" class="card hide"><h3 style="margin:0 0 6px;font-size:22px">Video is coming soon</h3><p class="muted" style="font-size:16px">We’re building text-to-video and video enhancement. Until then, create images and designs, or enhance your photos.</p><ul class="muted"><li>Text to video</li><li>Video enhancement</li><li>Video editing</li></ul></section>
+</div>
+
+<div class="modal hide" id="plan" onclick="if(event.target===this)closePlan()"><div class="sheet">
+<div class="plan" id="freePlan">
+<div class="price">Free <span class="tag" id="freeTag"></span></div>
+<ul><li>2 free creations</li><li>No card needed</li></ul>
+<button class="btn alt" style="margin-top:4px" onclick="closePlan();document.querySelector('#tabs button').click()">Start free</button>
+</div>
+<div class="plan" id="proPlan">
+<div class="price">$5<span class="muted" style="font-size:16px;font-weight:400"> / month</span> <span class="tag" id="proTag"></span></div>
+<ul><li>100 creations every month</li><li>Generate, upscale and enhance</li><li>Cancel any time</li></ul>
+<button class="btn" id="subBtn" style="margin-top:4px"></button>
+</div>
+<p class="muted" id="planNote"></p>
+<button class="btn alt" onclick="closePlan()">Close</button>
+<p class="muted">Secure payment by Stripe. Manage or cancel any time.</p>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let S={credits:0,pro:false,items:[],email:''};
+const KEY=()=>'vigai_gal_'+S.email;
+function save(){try{localStorage.setItem(KEY(),JSON.stringify(S.items))}catch(e){toast('Gallery is full. Older items were not saved.')}}
+async function logout(){await fetch('/api/logout',{method:'POST'});location.href='/'}
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
+function render(){
+ $('credits').textContent=S.credits+' credits'+(S.pro?' · Pro':'');
+ $('subBtn').textContent=S.pro?'Cancel subscription':'Subscribe for $5/month';
+ $('freeTag').textContent=S.pro?'':'Current plan';$('proTag').textContent=S.pro?'Current plan':'';
+ $('freePlan').classList.toggle('cur',!S.pro);$('proPlan').classList.toggle('cur',S.pro);
+ $('planNote').textContent=S.pro?'You are on the Pro plan.':'You have '+S.credits+' credit'+(S.credits===1?'':'s')+' left.';
+ const g=$('galGrid');g.innerHTML='';
+ $('empty').classList.toggle('hide',S.items.length>0);
+ S.items.forEach((it,i)=>{const d=document.createElement('div');
+  d.innerHTML='<img alt="'+it.label.replace(/"/g,'')+'" src="'+it.src+'"><a href="'+it.src+'" download="vigai-'+i+'.jpg">Download</a>';g.appendChild(d)});
+}
+function spend(n){if(S.credits<n){toast('Not enough credits. Upgrade to continue.');openPlan();return false}S.credits-=n;return true}
+function openPlan(){$('plan').classList.remove('hide')}function closePlan(){$('plan').classList.add('hide')}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
+ ['gen','enh','gal','vid'].forEach(t=>$(t).classList.toggle('hide',t!==b.dataset.t))});
+
+// procedural art
+const PAL={dusk:['#1b1464','#7b2ff7','#f107a3','#ffb86b'],ocean:['#031d44','#0b6e99','#3ec1d3','#e8fffd'],ember:['#2b0a0a','#9b1d20','#ff5400','#ffd166'],forest:['#0b2b1c','#2d6a4f','#74c69d','#f1faee']};
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function art(cv,prompt,style){
+ const c=cv.getContext('2d'),R=rng(hash(prompt+style+Date.now()%7)),p=PAL[style],w=cv.width;
+ const g=c.createLinearGradient(0,0,0,w);g.addColorStop(0,p[0]);g.addColorStop(1,p[1]);c.fillStyle=g;c.fillRect(0,0,w,w);
+ for(let i=0;i<14;i++){c.globalAlpha=.15+R()*.4;c.fillStyle=p[1+Math.floor(R()*3)];
+  c.beginPath();c.arc(R()*w,R()*w,30+R()*140,0,7);c.fill()}
+ c.globalAlpha=1;c.fillStyle=p[3];c.beginPath();c.arc(w*(.3+R()*.4),w*(.25+R()*.2),40+R()*30,0,7);c.fill();
+ c.fillStyle=p[0];c.globalAlpha=.9;
+ for(let k=0;k<3;k++){c.beginPath();c.moveTo(0,w);let y=w*(.6+k*.1);c.lineTo(0,y);
+  for(let x=0;x<=w;x+=32)c.lineTo(x,y-R()*80);c.lineTo(w,w);c.fill();c.globalAlpha-=.2}
+ c.globalAlpha=1;
+}
+function thumb(cv){const t=document.createElement('canvas'),m=Math.min(1,640/Math.max(cv.width,cv.height));
+ t.width=cv.width*m;t.height=cv.height*m;t.getContext('2d').drawImage(cv,0,0,t.width,t.height);return t.toDataURL('image/jpeg',.82)}
+function add(cv,label){S.items.unshift({src:thumb(cv),label});S.items=S.items.slice(0,24);save();render()}
+
+$('genBtn').onclick=async()=>{const p=$('prompt').value.trim();if(!p){toast('Describe what you want first');return}
+ if(S.credits<1){toast('Out of credits. Upgrade to continue.');openPlan();return}
+ const b=$('genBtn');b.disabled=true;b.textContent='Generating\u2026';
+ try{
+  const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p,kind:$('kind').value,style:$('style').value})});
+  if(r.status===401){location.href='/login.html';return}
+  const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');
+  await new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const c=$('genCv');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);ok()};im.onerror=no;im.src='data:image/png;base64,'+d.image});
+  S.credits=d.credits;$('genCv').classList.remove('hide');$('saveGen').classList.remove('hide');
+ }catch(e){toast(e.message)}
+ b.disabled=false;b.textContent='Create (1 credit)';render()};
+$('saveGen').onclick=()=>{add($('genCv'),$('prompt').value||'Generated');toast('Saved to gallery')};
+
+// enhance
+let IMG=null;
+function draw(){if(!IMG)return;const cv=$('enhCv'),c=cv.getContext('2d');
+ const m=Math.min(1,1024/Math.max(IMG.width,IMG.height));cv.width=IMG.width*m;cv.height=IMG.height*m;
+ c.filter=`brightness(${$('br').value}%) contrast(${$('ct').value}%) saturate(${$('sa').value}%)`;
+ c.imageSmoothingQuality='high';c.drawImage(IMG,0,0,cv.width,cv.height)}
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();
+ im.onload=()=>{IMG=im;$('ctl').classList.remove('hide');$('enhCv').classList.remove('hide');draw()};im.src=URL.createObjectURL(f)};
+['br','ct','sa'].forEach(i=>$(i).oninput=draw);
+$('enhBtn').onclick=()=>{if(!IMG)return; if($('up').checked){const o=$('enhCv'),t=document.createElement('canvas');t.width=o.width*2;t.height=o.height*2;
+  const c=t.getContext('2d');c.imageSmoothingQuality='high';c.drawImage(o,0,0,t.width,t.height);add(t,'Enhanced 2x')}
+ else add($('enhCv'),'Enhanced');toast('Saved to gallery')};
+$('subBtn').onclick=async()=>{const b=$('subBtn');b.disabled=true;
+ try{const r=await fetch(S.pro?'/api/portal':'/api/checkout',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.error);location.href=d.url}
+ catch(e){toast('Couldn\u2019t open payment page. Try again.');b.disabled=false}};
+(async()=>{try{const r=await fetch('/api/me');if(r.status===401){location.href='/login.html';return}
+ let d=await r.json();
+ if(location.search.includes('upgraded=1')){for(let i=0;i<6&&!d.pro;i++){await new Promise(z=>setTimeout(z,1500));d=await(await fetch('/api/me')).json()}}
+ S.credits=d.credits;S.pro=d.pro;S.email=d.email;
+ try{S.items=JSON.parse(localStorage.getItem(KEY())||'[]')}catch(e){}
+ if(location.search.includes('upgraded=1')){toast('Welcome to Pro!');history.replaceState({},'','/app.html')}}
+ catch(e){toast('Can\u2019t reach the server')}
+ render()})();
+</script></body></html>
