@@ -15,7 +15,7 @@ const { JWT_SECRET, STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_WEBHOOK_SECRET, O
   BASE_URL = 'http://localhost:3000', DB_PATH = './vigai.db', PORT = 3000 } = process.env;
 if (!JWT_SECRET) throw new Error('Set JWT_SECRET in .env');
 
-const FREE_CREDITS = 2, PRO_CREDITS = 100;
+const FREE_CREDITS = 5, PRO_CREDITS = 100;
 const stripe = new Stripe(STRIPE_SECRET_KEY || 'sk_missing');
 const gclient = new OAuth2Client(GOOGLE_CLIENT_ID);
 const db = new Database(DB_PATH);
@@ -44,7 +44,8 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), (req, res) =
   res.json({ received: true });
 });
 
-app.use(express.json({ limit: '10kb' }));
+const smallJson = express.json({ limit: '10kb' }), bigJson = express.json({ limit: '6mb' });
+app.use((req, res, next) => (req.path === '/api/generate' ? bigJson : smallJson)(req, res, next));
 app.use(cookieParser());
 // Serve only these site files, from /public if it exists, otherwise from the main folder
 const SITE = new Set(['index.html', 'login.html', 'app.html', 'terms.html', 'privacy.html', 'site.css']);
@@ -111,6 +112,12 @@ app.post('/api/google', authLimit, async (req, res) => {
 app.post('/api/logout', (req, res) => { res.clearCookie('token'); res.json({ ok: true }); });
 app.get('/api/me', auth, (req, res) => res.json({ email: req.user.email, credits: req.user.credits, pro: !!req.user.pro }));
 
+app.post('/api/spend', auth, (req, res) => {
+  const took = db.prepare('UPDATE users SET credits=credits-1 WHERE id=? AND credits>0').run(req.user.id);
+  if (!took.changes) return res.status(402).json({ error: 'Out of credits' });
+  res.json({ credits: db.prepare('SELECT credits FROM users WHERE id=?').get(req.user.id).credits });
+});
+
 const STYLES = { dusk: 'warm purple and pink dusk lighting', ocean: 'cool deep blue and teal tones',
   ember: 'glowing orange and red ember tones', forest: 'lush green forest tones' };
 
@@ -123,19 +130,32 @@ const KINDS = {
 
 app.post('/api/generate', auth, genLimit, async (req, res) => {
   const prompt = String(req.body.prompt || '').trim().slice(0, 500);
-  if (!prompt) return res.status(400).json({ error: 'Describe your image first' });
+  const img = /^data:(image\/(png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body.image || ''));
+  if (req.body.image && !img) return res.status(400).json({ error: 'Unsupported image. Use JPG, PNG or WebP.' });
+  if (!prompt && !img) return res.status(400).json({ error: 'Describe what you want first' });
   const k = KINDS[req.body.kind] || KINDS.image;
   // Atomic: take the credit first, refund if generation fails
   const took = db.prepare('UPDATE users SET credits=credits-1 WHERE id=? AND credits>0').run(req.user.id);
   if (!took.changes) return res.status(402).json({ error: 'Out of credits' });
   const refund = () => db.prepare('UPDATE users SET credits=credits+1 WHERE id=?').run(req.user.id);
   try {
-    const r = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: process.env.IMAGE_MODEL || 'gpt-image-2',
-        prompt: `${k.pre}${prompt}. Style: ${STYLES[req.body.style] || 'natural'}`, size: k.size, quality: 'low', n: 1 }),
-    });
+    const model = process.env.IMAGE_MODEL || 'gpt-image-2';
+    const st = STYLES[req.body.style];
+    const base = img ? (prompt || 'Enhance this image: improve clarity, lighting, colour and detail, keeping the content the same') : k.pre + prompt;
+    const text = st ? `${base}. Style: ${st}` : base;
+    let r;
+    if (img) { // imported image or design: edit / enhance it with the prompt
+      const form = new FormData();
+      form.append('model', model); form.append('prompt', text); form.append('quality', 'low'); form.append('size', k.size);
+      form.append('image', new Blob([Buffer.from(img[3], 'base64')], { type: img[1] }), 'input.' + (img[2] === 'jpeg' ? 'jpg' : img[2]));
+      r = await fetch('https://api.openai.com/v1/images/edits', { method: 'POST', headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }, body: form });
+    } else {
+      r = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
+        body: JSON.stringify({ model, prompt: text, size: k.size, quality: 'low', n: 1 }),
+      });
+    }
     const data = await r.json();
     if (!r.ok) { console.error(JSON.stringify(data)); refund(); return res.status(502).json({ error: 'Image service error. Credit refunded.' }); }
     const credits = db.prepare('SELECT credits FROM users WHERE id=?').get(req.user.id).credits;
